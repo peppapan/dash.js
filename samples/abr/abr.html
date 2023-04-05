@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
-    <title>Configuration of ABR Rules</title>
+    <title>Custom ABR Rules</title>
 
-    <script src="../../dist/dash.all.debug.js"></script>
+    <script src="../../dist/dash.all.min.js"></script>
 
     <!-- Bootstrap core CSS -->
     <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet">
@@ -16,74 +17,120 @@
             height: 360px;
         }
     </style>
-    
+
+    <script src="LowestBitrateRule.js" class="code"></script>
+
     <script class="code">
+
+        var preType = 'bufferLoaded';
+        var preTime = new Date().getTime();
+        var bufferTime = 0;
+        function showEvent(e) {
+            console.log("Event received: " + e.type);
+            console.log("Time: " + new Date().getTime());
+            console.log("preType: " + preType);
+
+            if (preType == 'bufferStalled' && e.type == 'bufferLoaded') {
+                let now = new Date().getTime();
+                bufferTime = now - preTime;
+                console.log("bufferTime: " + bufferTime);
+            }
+            preType = e.type;
+            preTime = new Date().getTime();
+        }
+
         function init() {
             var video,
                 player,
-                url = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd";
+                url = "http://10.177.64.117:8080/Manifest.mpd";
 
             video = document.querySelector("video");
             player = dashjs.MediaPlayer().create();
-            
+
+            /* don't use dash.js default rules */
             player.updateSettings({
                 streaming: {
                     abr: {
-                        useDefaultABRRules: true,
-                        ABRStrategy: 'abrThroughput',
-                        additionalAbrRules: {
-                            insufficientBufferRule: true,
-                            switchHistoryRule: false,
-                            droppedFramesRule: false,
-                            abandonRequestsRule: false
-                        }
-                        
+                        'useDefaultABRRules': false,
+                        'initialBitrate': { audio: -1, video: 100 }},
+                    buffer: {
+                        fastSwitchEnabled: false
                     }
-                }
-            });
-            
+                    }
+                });
 
+            /* Extend RequestModifier class and implement our own behaviour */
+            player.extend("RequestModifier", function () {
+                return {
+                    modifyRequestHeader: function (xhr, { url }) {
+                        /* Add custom header. Requires to set up Access-Control-Allow-Headers in your */
+                        /* response header in the server side. Reference: https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/setRequestHeader */
+                        return xhr;
+                    },
+                    modifyRequestURL: function (url) {
+                        const quality = player.getQualityFor("video");
+                        const buffer = player.getBufferLength("video");
+                        let bufferTemp = bufferTime;
+                        bufferTime = 0;
+                        /* Modify url adding a custom query string parameter */
+                        return url + `?quality=${quality}?buffer=${buffer}?rebuffer=${bufferTemp}`;
+                    },
+
+                };
+            });
+            /* add my custom quality switch rule. Look at LowestBitrateRule.js to know more */
+            /* about the structure of a custom rule */
+            player.addABRCustomRule('qualitySwitchRules', 'LowestBitrateRule', LowestBitrateRule);
+
+            player.on(dashjs.MediaPlayer.events.PLAYBACK_NOT_ALLOWED, function (data) {
+                console.log('Playback did not start due to auto play restrictions. Muting audio and reloading');
+                video.muted = true;
+                player.initialize(video, url, true);
+            });
             player.initialize(video, url, true);
+            player.on(dashjs.MediaPlayer.events['BUFFER_LOADED'], showEvent);
+            player.on(dashjs.MediaPlayer.events['BUFFER_EMPTY'], showEvent);
         }
+
     </script>
 </head>
+
 <body>
 
-<main>
-    <div class="container py-4">
-        <header class="pb-3 mb-4 border-bottom">
-            <img class=""
-                 src="../lib/img/dashjs-logo.png"
-                 width="200">
-        </header>
-        <div class="row">
-            <div class="col-md-4">
-                <div class="h-100 p-5 bg-light border rounded-3">
-                    <h3>Configuration of ABR Rules</h3>
-                    <p>Example showing how to define the target ABR rules in dash.js. In this demo we enable the throughput based ABR decision logic. In addition, the InsufficientBufferRule is enabled.</p>
+    <main>
+        <div class="container py-4">
+            <header class="pb-3 mb-4 border-bottom">
+                <img class="" src="../lib/img/dashjs-logo.png" width="200">
+            </header>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="h-100 p-5 bg-light border rounded-3">
+                        <h3>Custom ABR Rules</h3>
+                        <p>Example showing how to create and define custom ABR rules in dash.js.</p>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <video controls="true"></video>
                 </div>
             </div>
-            <div class="col-md-8">
-                <video controls="true"></video>
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="code-output"></div>
+                </div>
             </div>
+            <footer class="pt-3 mt-4 text-muted border-top">
+                &copy; DASH-IF
+            </footer>
         </div>
-        <div class="row">
-            <div class="col-md-12">
-                <div id="code-output"></div>
-            </div>
-        </div>
-        <footer class="pt-3 mt-4 text-muted border-top">
-            &copy; DASH-IF
-        </footer>
-    </div>
-</main>
+    </main>
 
 
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        init();
-    });
-</script>
-<script src="../highlighter.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            init();
+        });
+    </script>
+    <script src="../highlighter.js"></script>
 </body>
+
 </html>
