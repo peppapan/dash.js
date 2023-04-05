@@ -27,11 +27,11 @@ def timeout_handler(signum, frame):
 	raise Exception("Timeout")
 
 # abr_algo = sys.argv[2]
-run_time = 100
+run_time = 200
 
 abr_algo = 'fastMPC'
 # generate url
-url = 'file:///home/pwq/dash.js/samples/abr/custom-abr-rules.html'
+url = 'file:///home/pwq/dashjs/samples/abr/custom-abr-rules.html'
 	
 # 	# to not display the page in browser
 display = Display(visible=0, size=(800,600))

@@ -42,7 +42,7 @@
         function init() {
             var video,
                 player,
-                url = "http://127.0.0.1:8080/Manifest.mpd";
+                url = "http://10.177.64.117:8080/Manifest.mpd";
 
             video = document.querySelector("video");
             player = dashjs.MediaPlayer().create();
@@ -73,7 +73,7 @@
                         let bufferTemp = bufferTime;
                         bufferTime = 0;
                         /* Modify url adding a custom query string parameter */
-                        return url + `?quality=${quality}?buffer=${buffer}?rebuffer=${bufferTemp}`;
+                        return url + `?ip=181?quality=${quality}?buffer=${buffer}?rebuffer=${bufferTemp}`;
                     },
 
                 };
